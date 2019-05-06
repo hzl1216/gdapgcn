@@ -1,0 +1,15 @@
+files_name = dict()
+
+files_name['file_home'] = files_home = '../files'
+files_name['gda_file'] = 'all_gene_disease_associations.tsv'
+files_name['dds_file'] = 'mesh_similarity.csv'
+files_name['ggn_file'] = 'HumanNet.csv'
+files_name['dmap_file'] = 'disease_mapping.csv'
+files_name['walk_file'] = 'walk_series.txt'
+files_name['test_file'] = 'test.csv'
+files_name['train_file'] = 'train.csv'
+files_name['word2vec'] = 'word2vec.model'
+files_name['similarity_matrix'] = 'similarity_matrix_04sparse_unweighted_dg_02ddgg'
+files_name['node_index'] = 'node_index'
+files_name['graph_dds_file'] = 'did_similarity.csv'
+files_name['graph_ggn_file'] = 'gene_net.csv'
