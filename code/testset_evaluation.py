@@ -332,7 +332,7 @@ def main(files_home):
     full_adj_matrix = sparse_mx_to_torch_sparse_tensor(full_adj_matrix).cuda()
 
     rp_matrices, lps = [], []
-    for epoch in range(args.epochs - 4, args.epochs):
+    for epoch in range(args.epochs - 5, args.epochs):
         f = open(files_home + '/networks/adj_matrix_%d_%d' % (number, epoch), 'rb')
         adj_matrix = cPickle.load(f)
         adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).cuda()
