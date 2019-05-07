@@ -34,22 +34,23 @@ args = parser.parse_args()
 def main(files_home):
     starttime = datetime.now()
     print('start train model ',starttime)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if args.cuda==True:
-        torch.cuda.manual_seed(args.seed)
+#    np.random.seed(args.seed)
+#    torch.manual_seed(args.seed)
+#    if args.cuda==True:
+#        torch.cuda.manual_seed(args.seed)
     # Load data
 
     f_train = os.path.join(files_home, files_name['train_file'])
     node_index_file = os.path.join(files_home, files_name['node_index'])
-    ### load mode
+    ### load node_index
     if args.load_node_index==True:
+        print('load old node_index')
         f = open(node_index_file, 'rb')
         node2index = cPickle.load(f)
         trainset = Sample_Set(f_train, node2index)
-    ### load mode end
     else:
-        ### new mode
+        ### new node_index
+        print('new node_index,need recalculator similarity matrix ')
         trainset = Sample_Set(f_train)
         node2index = trainset.get_node2index()
         f = open(node_index_file,'wb')
@@ -67,8 +68,8 @@ def main(files_home):
     node_dim = 128
     n_repr = 128
 
-    gcn = GCN(node_count,node_dim,n_repr)
-    lp_model = Link_Prediction(n_repr)
+    gcn = GCN(node_count,node_dim,n_repr,dropout=args.dropout)
+    lp_model = Link_Prediction(n_repr,dropout=args.dropout)
 
     if args.cuda == True:
         gcn.cuda()
@@ -108,27 +109,29 @@ def main(files_home):
         running_loss = 0.0
         adj_matrix = trainset.get_adj_matrix(f_ggi, f_dds)
 
-        adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix)
         if args.cuda == True:
-            adj_matrix.cuda()
+            adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).cuda()
+        else:
+            adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix)
         lp_model.train()
 
         gcn.train()
-        init_input = torch.LongTensor([j for j in range(0, node_count)])
         if args.cuda == True:
-            init_input.cuda()
+            init_input = torch.LongTensor([j for j in range(0, node_count)]).cuda()
+        else:
+            init_input = torch.LongTensor([j for j in range(0, node_count)])
         rp_matrix = gcn(init_input, adj_matrix)
 
         for i, data in enumerate(trainloader, 0):
             inputs, labels = data
-            input1, input2 = inputs[0], inputs[1]
             if args.cuda == True:
-                inputs[0].cuda()
-                inputs[1].cuda()
-
-            labels = labels.view(-1)
+                input1, input2 = inputs[0].cuda(), inputs[1].cuda()
+            else:
+                input1, input2 = inputs[0], inputs[1]
             if args.cuda == True:
-                labels.cuda()
+                labels = labels.view(-1).cuda()
+            else:
+                labels = labels.view(-1)
             rps1 = F.embedding(input1, rp_matrix)
             rps2 = F.embedding(input2, rp_matrix)
 
@@ -148,15 +151,16 @@ def main(files_home):
                 optimizer_lp_model.step()
                 running_loss += loss.item()
                 if (i + 1) % 1000 == 0:
-                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss))
+                    print('[%d, %5d] loss: %.3f' % (epoch, i + 1, running_loss))
                 running_loss = 0.0
                 loss = 0
-                init_input = torch.LongTensor([j for j in range(0, node_count)])
                 if args.cuda == True:
-                    init_input.cuda()
+                    init_input = torch.LongTensor([j for j in range(0, node_count)]).cuda()
+                else:
+                    init_input = torch.LongTensor([j for j in range(0, node_count)])
                 rp_matrix = gcn(init_input, adj_matrix)
 
-        if (epoch > args.epochs-5 and epoch < args.epochs):  #
+        if (epoch >= args.epochs-5 and epoch < args.epochs):  #
             f = open(files_home + '/networks/adj_matrix_%d_%d' % (args.number, epoch), 'wb')
             adj_matrix = trainset.get_adj_matrix(f_ggi, f_dds)
             cPickle.dump(adj_matrix, f)

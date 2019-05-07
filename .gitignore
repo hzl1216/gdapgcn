@@ -1,3 +1,6 @@
 .idea/
 
 files/
+
+code/.empty/
+code/__pycache__/

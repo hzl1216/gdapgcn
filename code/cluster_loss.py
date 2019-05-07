@@ -31,9 +31,11 @@ class Cluster_Loss(_Loss):
             cos_sm.append(column)
         cos_sm = torch.stack(cos_sm,0)
 
-        threshold = torch.tensor([[self.threshold]])
         if self.cuda == True:
-            threshold.cuda() # .expand(cos_sm.size())
+             threshold = torch.tensor([[self.threshold]]).cuda() # .expand(cos_sm.size())
+        else:
+             threshold = torch.tensor([[self.threshold]])
+
         bit_sm = cos_sm > threshold # Fullfil with 0 or 1
 
         index1_list, index2_list, value_list = [],[],[]
@@ -41,9 +43,11 @@ class Cluster_Loss(_Loss):
         for i in range(0,bit_sm.size()[0]):
             row_sp = bit_sm[i].to_sparse()
             index1 = row_sp.indices()
-            index2 = torch.LongTensor([[i]]).expand(index1.size())
             if self.cuda == True:
-                index2.cuda()
+                index2 = torch.LongTensor([[i]]).expand(index1.size()).cuda()
+            else:
+                index2 = torch.LongTensor([[i]]).expand(index1.size())
+
             value = row_sp.values()
             row_sum.append(value.size()[0])
             index1_list.append(index1)
@@ -56,9 +60,10 @@ class Cluster_Loss(_Loss):
         print(values.size()) # the number of similarity links
         sparse_sm = torch.sparse.FloatTensor(indices, values.float(), bit_sm.size())
 
-        sm_rowsum_recip = torch.reciprocal(torch.FloatTensor(row_sum))
         if self.cuda == True:
-            sm_rowsum_recip.cuda()
+            sm_rowsum_recip = torch.reciprocal(torch.FloatTensor(row_sum)).cuda()
+        else:
+            sm_rowsum_recip = torch.reciprocal(torch.FloatTensor(row_sum))
                 # Si = 1/(sum(Sij) for j)
         sm_rowsum_recip = torch.unsqueeze(sm_rowsum_recip, 1) # [[S1], [S2], ..., [Si]]
         sm_rowsum_recip = sm_rowsum_recip.expand(rp.size()) # [[S1,S1,..], [S2,S2,..], ..., [Si,Si,..]]
