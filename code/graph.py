@@ -139,9 +139,9 @@ class Graph(object):
         df_train = pd.DataFrame(columns=('gid', 'did', 'score'))
         df_train.to_csv(train_file)
 
-        csvfile_test = open(test_file, 'a')
+        csvfile_test = open(test_file, 'a',newline ='')
         writer_test = csv.writer(csvfile_test)
-        csvfile_train = open(train_file, 'a')
+        csvfile_train = open(train_file, 'a',newline ='')
         writer_train = csv.writer(csvfile_train)
         # load the gda files and construct g-d network or split into testset
         for i in range(0, len(df_gda)):
@@ -180,7 +180,7 @@ class Graph(object):
         '''
         df_new_ggn = pd.DataFrame(columns=('gid1', 'gid2', 'score'))
         df_new_ggn.to_csv(new_ggn_file)
-        csvfile_ggn = open(new_ggn_file, 'a')
+        csvfile_ggn = open(new_ggn_file, 'a',newline ='')
         writer_ggn = csv.writer(csvfile_ggn)
         df_ggn = pd.read_csv(ggn_file)
         for i in range(0, len(df_ggn)):  # construct g-g network
@@ -201,7 +201,7 @@ class Graph(object):
         '''
         df_new_dds = pd.DataFrame(columns=('did1', 'did2', 'score'))
         df_new_dds.to_csv(save_file)
-        csvfile_dds = open(save_file, 'a')
+        csvfile_dds = open(save_file, 'a',newline ='')
         writer_dds = csv.writer(csvfile_dds)
 
         df_dds = pd.read_csv(dds_file)

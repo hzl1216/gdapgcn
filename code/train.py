@@ -44,10 +44,18 @@ def main(files_home):
     node_index_file = os.path.join(files_home, files_name['node_index'])
     ### load node_index
     if args.load_node_index==True:
-        print('load old node_index')
-        f = open(node_index_file, 'rb')
-        node2index = cPickle.load(f)
-        trainset = Sample_Set(f_train, node2index)
+        try:
+            print('load old node_index')
+            f = open(node_index_file, 'rb')
+            node2index = cPickle.load(f)
+            trainset = Sample_Set(f_train, node2index)
+        except:
+            ### new node_index
+            print('load node_index failed,generate new node_index,need recalculator similarity matrix ')
+            trainset = Sample_Set(f_train)
+            node2index = trainset.get_node2index()
+            f = open(node_index_file,'wb')
+            cPickle.dump(node2index,f)
     else:
         ### new node_index
         print('new node_index,need recalculator similarity matrix ')
