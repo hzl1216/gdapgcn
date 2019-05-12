@@ -11,6 +11,7 @@ import argparse
 from file_name import files_name
 import os
 import ast
+from tqdm import tqdm
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--cuda', default=True, help='use CUDA (default: True),input should be either "True" or "False".',
@@ -22,7 +23,7 @@ parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
 parser.add_argument('--batch_size', type=int, default=32,
                     help='batch size')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.0,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--load_node_index', type=ast.literal_eval, default=True, dest='load_node_index',
                             help='load node index,(default: True, False meaning renew node index),'
@@ -39,6 +40,8 @@ def main(files_home):
 #    if args.cuda==True:
 #        torch.cuda.manual_seed(args.seed)
     # Load data
+    f_ggi = os.path.join(files_home, files_name['graph_ggn_file'])
+    f_dds = os.path.join(files_home, files_name['graph_dds_file'])
 
     f_train = os.path.join(files_home, files_name['train_file'])
     node_index_file = os.path.join(files_home, files_name['node_index'])
@@ -48,11 +51,11 @@ def main(files_home):
             print('load old node_index')
             f = open(node_index_file, 'rb')
             node2index = cPickle.load(f)
-            trainset = Sample_Set(f_train, node2index)
+            trainset = Sample_Set(f_train,f_ggi,f_dds, node2index)
         except:
             ### new node_index
             print('load node_index failed,generate new node_index,need recalculator similarity matrix ')
-            trainset = Sample_Set(f_train)
+            trainset = Sample_Set(f_train,f_ggi,f_dds)
             node2index = trainset.get_node2index()
             f = open(node_index_file,'wb')
             cPickle.dump(node2index,f)
@@ -69,13 +72,11 @@ def main(files_home):
         value = node2index[key]
         node2index_r[value] = key
 
-    f_ggi = os.path.join(files_home, files_name['graph_ggn_file'])
-    f_dds = os.path.join(files_home, files_name['graph_dds_file'])
+
 
     node_count = len(node2index)
     node_dim = 128
     n_repr = 128
-
     gcn = GCN(node_count,node_dim,n_repr,dropout=args.dropout)
     lp_model = Link_Prediction(n_repr,dropout=args.dropout)
 
@@ -101,6 +102,7 @@ def main(files_home):
         class_weight = torch.FloatTensor([1, 1]).cuda()  ##
     else:
         class_weight = torch.FloatTensor([1, 1])
+    print(class_weight)
     criterion = nn.NLLLoss(weight=class_weight)
     criterion_rp = Cluster_Loss(threshold=0.8, weight=0.0001,cuda=args.cuda)
     optimizer_lp_model = optim.Adam(list(gcn.parameters()) + list(lp_model.parameters()),lr=args.lr)
@@ -109,13 +111,13 @@ def main(files_home):
     rp_matrices, lp_model_evals = [], []
 
     f = open(files_home + '/networks/adj_matrix_%d_full' % (args.number), 'wb')
-    adj_full = trainset.get_full_adj_matrix(f_ggi, f_dds)
+    adj_full = trainset.get_full_adj_matrix()
     cPickle.dump(adj_full, f)
 
-    for epoch in range(0, args.epochs):  #
+    for epoch in tqdm(range(args.epochs)):  #
 
         running_loss = 0.0
-        adj_matrix = trainset.get_adj_matrix(f_ggi, f_dds)
+        adj_matrix = trainset.get_adj_matrix()
 
         if args.cuda == True:
             adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).cuda()
@@ -175,9 +177,9 @@ def main(files_home):
 
             torch.save(gcn.state_dict(), files_home + '/networks/GCN_%d_%d.pth' % (args.number, epoch))
             torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_%d_%d.pth' % (args.number, epoch))
-
+        print('reset train samples set')
         trainset.reassign_samples(gcn.embedding.weight)  #
-        trainloader = DataLoader(trainset, batch_size=32, shuffle=True)  #
+        trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)  #
 
     endtime = datetime.now()
     print('finish train model! run spend ',endtime-starttime)

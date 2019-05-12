@@ -1,10 +1,9 @@
-
 import torch
 import random
 import numpy as np
 import scipy.sparse as sp
 from pandas.io.parsers import read_csv
-
+from utils import sparse_mx_to_torch_sparse_tensor
 def get_pairs(file):
     """ get gid and did as a pair from file and add it in a set"""
     df = read_csv(file)  # sep='\t'
@@ -25,14 +24,26 @@ def get_items(pairs):
     return gene_set, disease_set
 
 
-def generate_negative(genes, diseases, pos_samples, nega_weight):
+def generate_negative(genes, diseases, pos_samples, nega_weight,adj_matrix,node_index):
     """ generate negative sample by random change one of a pairs"""
+    adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).to_dense()
     pairs = set()
     genes, diseases = list(genes), list(diseases)
+    i = 0
+    j=0
     for ps in pos_samples:
         for k in range(0, nega_weight):
             index = random.randint(0, len(genes) - 1)
+            while True:
+                if adj_matrix[node_index[genes[index]]][node_index[ps[1]]]==0.0:
+                    j+=1
+                    break
+                else:
+                    i+=1
+                index = random.randint(0, len(genes) - 1)
+
             pairs.add((genes[index], ps[1]))
+    print(i,j)
     return list(pairs)
 
 

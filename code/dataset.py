@@ -3,7 +3,7 @@ from dataset_tool import *
 import torch.nn.functional as F
 class Sample_Set(Dataset):
 
-    def __init__(self, file_train_sample, node2index=None):
+    def __init__(self, file_train_sample, ggi,dds,node2index=None):
 
         self.pairs_train = get_pairs(file_train_sample)
         self.all_genes, self.all_diseases = get_items(self.pairs_train)
@@ -16,7 +16,8 @@ class Sample_Set(Dataset):
             self.node2index = node2index
         self.added_samples = set()
         self.positive_samples = None
-
+        self.ggi=ggi
+        self.dds=dds
     def reassign_samples(self, embedding):
         self.embedding = embedding
         self.positive_samples_target, self.positive_samples_base = [], []
@@ -27,8 +28,10 @@ class Sample_Set(Dataset):
                 self.positive_samples_base.append(pair)
 
         self.positive_samples = self.positive_samples_base + self.positive_samples_target
-        self.negative_samples = generate_negative(self.all_genes, self.all_diseases, self.positive_samples,
-                                                  self.nega_weight)
+        self.adj_matrix = adjacency_matrix(self.positive_samples_base + self.positive_samples_target, self.ggi, self.dds,
+                                      self.node2index, self.dropout)
+        self.negative_samples = generate_negative(self.all_genes, self.all_diseases, self.positive_samples_target,
+                                                  self.nega_weight,self.adj_matrix,self.node2index)
         self.samples = merge_samples(self.nega_weight, self.positive_samples_target, self.negative_samples)
 
     def add_samples(self, new_samples):
@@ -37,14 +40,12 @@ class Sample_Set(Dataset):
     def remove_samples(self, del_samples):
         self.added_samples = self.added_samples - del_samples
 
-    def get_adj_matrix(self, ggi, dds):
-        adj_matrix = adjacency_matrix(self.positive_samples_base, ggi, dds, self.node2index, 0.0)
+    def get_adj_matrix(self):
+        adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index, 0.0)
         return adj_matrix
 
-    def get_full_adj_matrix(self, ggi, dds):
-        adj_matrix = adjacency_matrix(self.positive_samples_base + self.positive_samples_target, ggi, dds,
-                                      self.node2index, self.dropout)
-        return adj_matrix
+    def get_full_adj_matrix(self):
+        return self.adj_matrix
 
     def get_node2index(self):
         return self.node2index

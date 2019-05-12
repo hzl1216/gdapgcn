@@ -311,8 +311,8 @@ def main(files_home):
     f_train = os.path.join(files_home, files_name['train_file'])
     f_test = os.path.join(files_home, files_name['test_file'])  ###
 
-    testset = Sample_Set_Test(f_test, node2index)
-    testloader = DataLoader(testset, batch_size=32, shuffle=False)
+
+
     node_count = len(node2index)
     node_dim = 128
     n_repr = 128
