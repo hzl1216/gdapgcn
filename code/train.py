@@ -19,6 +19,7 @@ parser.add_argument('--cuda', default=True, help='use CUDA (default: True),input
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=100,
                     help='args.number of epochs to train.')
+
 parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
 parser.add_argument('--batch_size', type=int, default=32,
@@ -30,6 +31,10 @@ parser.add_argument('--load_node_index', type=ast.literal_eval, default=True, de
                                                      'input should be either "True" or "False".')
 parser.add_argument('--number', type=int, default=1,
                             help='number to use sign the different train model')
+parser.add_argument('--load_model', type=ast.literal_eval, default=True, dest='load_model',
+                                    help='load model continue train,(default: True, False meaning renew node index),'
+                                        'input should be either "True" or "False".')
+
 args = parser.parse_args()
 
 def main(files_home):
@@ -62,7 +67,7 @@ def main(files_home):
     else:
         ### new node_index
         print('new node_index,need recalculator similarity matrix ')
-        trainset = Sample_Set(f_train)
+        trainset = Sample_Set(f_train,f_ggi,f_dds)
         node2index = trainset.get_node2index()
         f = open(node_index_file,'wb')
         cPickle.dump(node2index,f)
@@ -71,7 +76,6 @@ def main(files_home):
     for key in node2index.keys():
         value = node2index[key]
         node2index_r[value] = key
-
 
 
     node_count = len(node2index)
@@ -99,10 +103,9 @@ def main(files_home):
     print('Node dimension : ', node_dim)
 
     if args.cuda == True:
-        class_weight = torch.FloatTensor([1, 1]).cuda()  ##
+        class_weight = torch.FloatTensor([1, 10]).cuda()  ##
     else:
-        class_weight = torch.FloatTensor([1, 1])
-    print(class_weight)
+        class_weight = torch.FloatTensor([1, 10])
     criterion = nn.NLLLoss(weight=class_weight)
     criterion_rp = Cluster_Loss(threshold=0.8, weight=0.0001,cuda=args.cuda)
     optimizer_lp_model = optim.Adam(list(gcn.parameters()) + list(lp_model.parameters()),lr=args.lr)
@@ -114,7 +117,30 @@ def main(files_home):
     adj_full = trainset.get_full_adj_matrix()
     cPickle.dump(adj_full, f)
 
-    for epoch in tqdm(range(args.epochs)):  #
+    # load the last model
+    last_epoch=0
+    if args.load_model ==True: 
+        print('load model,continue train')
+        files= os.listdir(files_home + '/networks/') #得到文件夹下的所有文件名称
+        s = []
+        for file in files:
+            if 'Link_Prediction_last_' in file:
+                s.append(int(file[len('Link_Prediction_last_'):].split('.')[0]))
+        last_epoch = max(s)                                                                 
+        gcn.load_state_dict(torch.load(files_home + '/networks/GCN_last_%d.pth'%last_epoch))
+        lp_model.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_last_%d.pth'%last_epoch ))
+        last_epoch+=1
+    else:
+        print('retrain model')
+        files= os.listdir(files_home + '/networks/') #得到文件夹下的所有文件名称
+        for file in files:
+            os.remove(files_home + '/networks/'+file) 
+    f = open(files_home + '/networks/adj_matrix_%d_full' % (args.number), 'wb')
+    adj_full = trainset.get_full_adj_matrix()
+    cPickle.dump(adj_full, f)
+
+
+    for epoch in tqdm(range(last_epoch,args.epochs)):  #
 
         running_loss = 0.0
         adj_matrix = trainset.get_adj_matrix()
@@ -171,12 +197,11 @@ def main(files_home):
                 rp_matrix = gcn(init_input, adj_matrix)
 
         if (epoch >= args.epochs-5 and epoch < args.epochs):  #
-            f = open(files_home + '/networks/adj_matrix_%d_%d' % (args.number, epoch), 'wb')
-            adj_matrix = trainset.get_adj_matrix(f_ggi, f_dds)
-            cPickle.dump(adj_matrix, f)
-
-            torch.save(gcn.state_dict(), files_home + '/networks/GCN_%d_%d.pth' % (args.number, epoch))
-            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_%d_%d.pth' % (args.number, epoch))
+            torch.save(gcn.state_dict(), files_home + '/networks/GCN_last_%d.pth' % ( epoch))
+            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_last_%d.pth' % ( epoch))
+        elif epoch%9==0:
+            torch.save(gcn.state_dict(), files_home + '/networks/GCN_last_%d.pth'%(epoch))
+            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_last_%d.pth'%(epoch))
         print('reset train samples set')
         trainset.reassign_samples(gcn.embedding.weight)  #
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)  #

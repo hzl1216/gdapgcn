@@ -1,9 +1,11 @@
+
 import torch
 import random
 import numpy as np
 import scipy.sparse as sp
 from pandas.io.parsers import read_csv
 from utils import sparse_mx_to_torch_sparse_tensor
+
 def get_pairs(file):
     """ get gid and did as a pair from file and add it in a set"""
     df = read_csv(file)  # sep='\t'
@@ -29,23 +31,16 @@ def generate_negative(genes, diseases, pos_samples, nega_weight,adj_matrix,node_
     adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).to_dense()
     pairs = set()
     genes, diseases = list(genes), list(diseases)
-    i = 0
-    j=0
     for ps in pos_samples:
         for k in range(0, nega_weight):
             index = random.randint(0, len(genes) - 1)
             while True:
                 if adj_matrix[node_index[genes[index]]][node_index[ps[1]]]==0.0:
-                    j+=1
                     break
-                else:
-                    i+=1
                 index = random.randint(0, len(genes) - 1)
 
             pairs.add((genes[index], ps[1]))
-    print(i,j)
     return list(pairs)
-
 
 def assign_index(all_genes, all_diseases):
     """ Set node index"""
@@ -87,7 +82,7 @@ def adjacency_matrix(pos_samples, ggi, dds, node2index, reweight):
     vertex_2 = list(range(0, len(node2index)))
     """ Generate associations based on positive sample sets"""
     for ps in pos_samples:
-        values.append((1.0 - reweight) * 1.0)  ## ps[2]
+        values.append(1.0-reweight) ## ps[2]
         vertex_1.append(node2index[ps[0]])
         vertex_2.append(node2index[ps[1]])
     """ Generate associations based on gene to gene associations"""
@@ -95,7 +90,7 @@ def adjacency_matrix(pos_samples, ggi, dds, node2index, reweight):
     for i in range(0, len(df)):
         g1 = node2index[str(df['gid1'][i])]
         g2 = node2index[str(df['gid2'][i])]
-        values.append(df['score'][i] / 2.0)  # /2.0 for uniform
+        values.append(df['score'][i]/2.0)
         vertex_1.append(g1)
         vertex_2.append(g2)
 
@@ -104,7 +99,7 @@ def adjacency_matrix(pos_samples, ggi, dds, node2index, reweight):
     for i in range(0, len(df)):
         d1 = node2index[str(df['did1'][i])]
         d2 = node2index[str(df['did2'][i])]
-        values.append(df['score'][i] * 5.0)  # *5.0 for uniform
+        values.append(df['score'][i]*5.0)
         vertex_1.append(d1)
         vertex_2.append(d2)
     """"build graph, coo_matrix((data, (i, j)), [shape=(M, N)])"""

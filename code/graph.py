@@ -78,7 +78,7 @@ class Node(object):
         random walk to next node
         :return:
         '''
-        random_weight = random.uniform(0, homo_RATIO+hetero_RATIO)
+        random_weight = random.uniform(0,hetero_RATIO+homo_RATIO)
         i = 0
         while (random_weight>=0.0)and(i<len(self.links)):
             random_weight = random_weight - self.links[i].link_weight

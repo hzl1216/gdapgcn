@@ -59,7 +59,7 @@ class GCN(nn.Module):
         self.embedding = nn.Embedding(node_count, self.n_feature)
         self.gc1 = GraphConvolution(self.n_feature, self.n_hidden)
         self.gc2 = GraphConvolution(self.n_hidden, self.n_representation)
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p=0.2)
         self.tmp_linear = nn.Linear(self.n_feature, self.n_representation)
         self.init_weights()
 
@@ -67,7 +67,6 @@ class GCN(nn.Module):
         x = self.embedding(x)  #
 
         x1 = F.relu(self.gc1(x, adj))
-        x1 = self.dropout(x1)
         x1 = self.gc2(x1, adj)
 
         x2 = self.dropout(x)
@@ -78,6 +77,8 @@ class GCN(nn.Module):
 
     def init_weights(self):
         init.xavier_uniform_(self.tmp_linear.weight)
+        init.xavier_uniform_(self.gc1.weight)
+        init.xavier_uniform_(self.gc2.weight)
 
 
 class Link_Prediction(nn.Module):

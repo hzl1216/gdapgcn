@@ -147,7 +147,7 @@ def get_test_priorization(dis2gene_test_true, dis2gene_test_all, feature_matrix,
     return ap, prec_mean, recall_mean, f1score_mean
 
 
-def get_test_priorization_new(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=256,
+def get_test_priorization_new(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024,
                               theta=0.8, threshold=0.8):
     '''
     :param dis2gene_test_true: the validate set
@@ -316,8 +316,8 @@ def main(files_home):
     node_count = len(node2index)
     node_dim = 128
     n_repr = 128
-    gcn = GCN(node_count, node_dim, n_repr)
-    lp = Link_Prediction(n_repr)
+    gcn = GCN(node_count,node_dim,n_repr,dropout=args.dropout)
+    lp = Link_Prediction(n_repr,dropout=args.dropout)
     if args.cuda == True:
         gcn.cuda()
         lp = nn.DataParallel(lp)
@@ -331,30 +331,33 @@ def main(files_home):
     full_adj_matrix = cPickle.load(f)
     full_adj_matrix = sparse_mx_to_torch_sparse_tensor(full_adj_matrix).cuda()
 
-    rp_matrices, lps = [], []
-    for epoch in range(args.epochs - 5, args.epochs):
-        f = open(files_home + '/networks/adj_matrix_%d_%d' % (number, epoch), 'rb')
-        adj_matrix = cPickle.load(f)
-        adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).cuda()
-
-        gcn.load_state_dict(torch.load(files_home + '/networks/GCN_%d_%d.pth' % (number, epoch)))
-        lp.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_%d_%d.pth' % (number, epoch)))
+#    rp_matrices, lps = [], []
+    for epoch in range(0, args.epochs):
+        if epoch%9!=0 and epoch<args.epochs-5:
+            continue
+        if 0:
+            gcn.load_state_dict(torch.load(files_home + '/networks/GCN_%d_%d.pth' % (number, epoch)))
+            lp.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_%d_%d.pth' % (number, epoch)))
+        else:
+            gcn.load_state_dict(torch.load(files_home + '/networks/GCN_last_%d.pth'%(epoch)))
+            lp.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_last_%d.pth'%(epoch)))
         gcn.eval()
-        lp.eval()
 
         feature_matrix = gcn(init_input, full_adj_matrix)
-        rp_matrices.append(feature_matrix)
-        lps.append(lp)
+#        rp_matrices.append(feature_matrix)
+#        lps.append(lp)
         if 0:
             # no use similarity matrix to solve
+            print('no use similarity matrix to solve')
             ap, prec, recall, f1score = get_test_priorization(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp)
             print('Performance for number=%d epoch=%d' % (number, epoch))
             print('AP: ', ap)
             print('Prec: ', prec)
             print('Recall: ', recall)
             print('F1score: ', f1score)
-        else:
             #  use similarity matrix to iterative solution
+        else:
+            print('use similarity matrix to iterative solution')
             ap, prec, recall, f1score = get_test_priorization_new(dis2gene_test_true, dis2gene_test_all, feature_matrix,
                                                                   lp)
             print('Performance for number=%d epoch=%d' % (number, epoch))
