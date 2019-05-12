@@ -19,7 +19,6 @@ our project structure is
     code/
     
 To run this model on the task, one only need to run python main.py with some args parameters, you also run some run some programs 
-
 separately,such as python graph.py to generate the word2vec model and some files for train and test.
 
 ## Paper
