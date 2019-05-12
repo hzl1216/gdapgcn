@@ -4,7 +4,7 @@ Gene Disease Association Prediction Base On Graph Convolutional Networks
 ## Requirements
 
 ## Usage
-our project structure is
+our project structure is /n
 [PROJECT_NAME] /
     files/
          results/ 
