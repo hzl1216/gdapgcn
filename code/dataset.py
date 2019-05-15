@@ -3,8 +3,8 @@ from dataset_tool import *
 import torch.nn.functional as F
 class Sample_Set(Dataset):
 
-    def __init__(self, file_train_sample, ggi,dds,node2index=None):
-
+    def __init__(self,file_test_sample, file_train_sample, ggi,dds,node2index=None):
+        self.pairs_test = get_pairs(file_test_sample)
         self.pairs_train = get_pairs(file_train_sample)
         self.all_genes, self.all_diseases = get_items(self.pairs_train)
         self.dropout = 0.5
@@ -15,9 +15,9 @@ class Sample_Set(Dataset):
         else:
             self.node2index = node2index
         self.added_samples = set()
-        self.positive_samples = None
         self.ggi=ggi
         self.dds=dds
+
     def reassign_samples(self, embedding):
         self.embedding = embedding
         self.positive_samples_target, self.positive_samples_base = [], []
@@ -27,11 +27,9 @@ class Sample_Set(Dataset):
             else:
                 self.positive_samples_base.append(pair)
 
-        self.positive_samples = self.positive_samples_base + self.positive_samples_target
-        self.adj_matrix = adjacency_matrix(self.positive_samples_base + self.positive_samples_target, self.ggi, self.dds,
-                                      self.node2index, self.dropout)
+        self.adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index, 0.0)
         self.negative_samples = generate_negative(self.all_genes, self.all_diseases, self.positive_samples_target,
-                                                  self.nega_weight,self.adj_matrix,self.node2index)
+                                                  self.nega_weight,self.pairs_test|self.pairs_train,self.node2index)
         self.samples = merge_samples(self.nega_weight, self.positive_samples_target, self.negative_samples)
 
     def add_samples(self, new_samples):
@@ -41,11 +39,12 @@ class Sample_Set(Dataset):
         self.added_samples = self.added_samples - del_samples
 
     def get_adj_matrix(self):
-        adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index, 0.0)
-        return adj_matrix
+        return self.adj_matrix
 
     def get_full_adj_matrix(self):
-        return self.adj_matrix
+        return adjacency_matrix(self.positive_samples_base + self.positive_samples_target, self.ggi, self.dds,
+                                                      self.node2index, self.dropout)
+
 
     def get_node2index(self):
         return self.node2index
@@ -77,13 +76,14 @@ class Sample_Set(Dataset):
 
 class Sample_Set_Test(Dataset):
 
-    def __init__(self, file_test_sample, node2index, nega_weight=10):
+    def __init__(self, file_test_sample,file_train, node2index, nega_weight=10):
 
         pairs_test = get_pairs(file_test_sample)
-        test_genes, test_diseases = get_items(pairs_test)
+        pairs_train = get_pairs(file_train)
+        all_genes, all_diseases = get_items(pairs_train)
         self.nega_weight = nega_weight
         self.positive_samples = list(pairs_test)
-        self.negative_samples = generate_negative(test_genes, test_diseases, self.positive_samples, self.nega_weight)
+        self.negative_samples = generate_negative(all_genes, all_diseases, self.positive_samples, self.nega_weight,pairs_train|pairs_test,node2index)
         self.samples = merge_samples(self.nega_weight, self.positive_samples, self.negative_samples)
         self.node2index = node2index
 

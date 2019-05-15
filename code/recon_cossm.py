@@ -1,9 +1,7 @@
-import csv
 import torch
 import gensim
 import _pickle as cPickle
 import numpy as np
-import pandas as pd
 import scipy.sparse as sp
 from dataset_tool import normalize
 from model import GCN
@@ -11,6 +9,7 @@ import torch.nn.functional as F
 from file_name import files_name
 import os
 from datetime import datetime
+from utils import sparse_mx_to_torch_sparse_tensor
 def load_pretrain_vector(n2i_f,vec_dir):
     global node2index
     node2index = cPickle.load(n2i_f)
@@ -103,7 +102,7 @@ def save_sparse_cossm(cos_sm, bit_sm, target_file):
 
 
 
-def load_trained_vector(number,epoch,n2i_f,file_homes):
+def load_trained_vector(epoch,number,n2i_f,file_homes):
     global node2index
     node2index = cPickle.load(n2i_f)
     node_count = len(node2index)
@@ -111,8 +110,15 @@ def load_trained_vector(number,epoch,n2i_f,file_homes):
     n_repr = 128
     gcn = GCN(node_count,node_dim,n_repr)
     gcn.load_state_dict(torch.load(file_homes+'/networks/GCN_%d_%d.pth'%(number,epoch),map_location='cpu'))
+    f = open(files_home + '/networks/adj_matrix_%d_full' % (number), 'rb')
+    full_adj_matrix = cPickle.load(f)
+    full_adj_matrix = sparse_mx_to_torch_sparse_tensor(full_adj_matrix)
+    init_input = torch.LongTensor([j for j in range(0, node_count)])
+    gcn.eval()
+
+    rp_matrix = gcn(init_input, full_adj_matrix)
     #gcn.to(device)
-    return gcn.embedding.weight.double()
+    return rp_matrix.double()
 
 def main(files_home):
     starttime = datetime.now()
@@ -122,6 +128,7 @@ def main(files_home):
     target_file = os.path.join(files_home, files_name['similarity_matrix'])
 
     rp_matrix = load_pretrain_vector(n2i_f,vec_dir)
+#    rp_matrix = load_trained_vector(99,number,n2i_f,files_home)
     cos_sm, bit_sm = get_avg_rp(rp_matrix)
     get_block_count(bit_sm)
     save_sparse_cossm(cos_sm, bit_sm, target_file)
@@ -130,4 +137,4 @@ def main(files_home):
     print('finish similarity calculated! run spend ',endtime-starttime)
 if __name__ == '__main__':
     files_home = files_name['file_home']
-    main(files_home)
+    main(files_home,2)

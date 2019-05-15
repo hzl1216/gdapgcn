@@ -12,6 +12,7 @@ from file_name import files_name
 import os
 import ast
 from tqdm import tqdm
+import recon_cossm
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--cuda', default=True, help='use CUDA (default: True),input should be either "True" or "False".',
@@ -19,7 +20,6 @@ parser.add_argument('--cuda', default=True, help='use CUDA (default: True),input
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=100,
                     help='args.number of epochs to train.')
-
 parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
 parser.add_argument('--batch_size', type=int, default=32,
@@ -49,6 +49,8 @@ def main(files_home):
     f_dds = os.path.join(files_home, files_name['graph_dds_file'])
 
     f_train = os.path.join(files_home, files_name['train_file'])
+    f_test = os.path.join(files_home, files_name['test_file'])
+
     node_index_file = os.path.join(files_home, files_name['node_index'])
     ### load node_index
     if args.load_node_index==True:
@@ -56,14 +58,15 @@ def main(files_home):
             print('load old node_index')
             f = open(node_index_file, 'rb')
             node2index = cPickle.load(f)
-            trainset = Sample_Set(f_train,f_ggi,f_dds, node2index)
+            trainset = Sample_Set(f_test,f_train,f_ggi,f_dds, node2index)
         except:
             ### new node_index
             print('load node_index failed,generate new node_index,need recalculator similarity matrix ')
-            trainset = Sample_Set(f_train,f_ggi,f_dds)
+            trainset = Sample_Set(f_test,f_train,f_ggi,f_dds)
             node2index = trainset.get_node2index()
             f = open(node_index_file,'wb')
             cPickle.dump(node2index,f)
+
     else:
         ### new node_index
         print('new node_index,need recalculator similarity matrix ')
@@ -71,12 +74,6 @@ def main(files_home):
         node2index = trainset.get_node2index()
         f = open(node_index_file,'wb')
         cPickle.dump(node2index,f)
-
-    node2index_r = dict()
-    for key in node2index.keys():
-        value = node2index[key]
-        node2index_r[value] = key
-
 
     node_count = len(node2index)
     node_dim = 128
@@ -103,41 +100,42 @@ def main(files_home):
     print('Node dimension : ', node_dim)
 
     if args.cuda == True:
-        class_weight = torch.FloatTensor([1, 10]).cuda()  ##
+        class_weight = torch.FloatTensor([1, 1]).cuda()  ##
     else:
-        class_weight = torch.FloatTensor([1, 10])
+        class_weight = torch.FloatTensor([1, 1])
     criterion = nn.NLLLoss(weight=class_weight)
     criterion_rp = Cluster_Loss(threshold=0.8, weight=0.0001,cuda=args.cuda)
     optimizer_lp_model = optim.Adam(list(gcn.parameters()) + list(lp_model.parameters()),lr=args.lr)
 
     loss = 0
-    rp_matrices, lp_model_evals = [], []
 
     f = open(files_home + '/networks/adj_matrix_%d_full' % (args.number), 'wb')
     adj_full = trainset.get_full_adj_matrix()
     cPickle.dump(adj_full, f)
 
     # load the last model
+    number=args.number
     last_epoch=0
     if args.load_model ==True: 
         print('load model,continue train')
         files= os.listdir(files_home + '/networks/') #得到文件夹下的所有文件名称
         s = []
         for file in files:
-            if 'Link_Prediction_last_' in file:
-                s.append(int(file[len('Link_Prediction_last_'):].split('.')[0]))
-        last_epoch = max(s)                                                                 
-        gcn.load_state_dict(torch.load(files_home + '/networks/GCN_last_%d.pth'%last_epoch))
-        lp_model.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_last_%d.pth'%last_epoch ))
-        last_epoch+=1
+            if 'Link_Prediction_%d_'%(number) in file :
+                s.append(int(file[len('Link_Prediction_%d_'%(number)):].split('.')[0]))
+        if len(s)>0:                                                                        
+            last_epoch = max(s)                                                                 
+            gcn.load_state_dict(torch.load(files_home + '/networks/GCN_%d_%d.pth'%(number,last_epoch)))
+            lp_model.load_state_dict(torch.load(files_home + '/networks/Link_Prediction_%d_%d.pth'%(number,last_epoch )))
+            last_epoch+=1
+        else:
+             last_epoch=0
     else:
         print('retrain model')
         files= os.listdir(files_home + '/networks/') #得到文件夹下的所有文件名称
         for file in files:
-            os.remove(files_home + '/networks/'+file) 
-    f = open(files_home + '/networks/adj_matrix_%d_full' % (args.number), 'wb')
-    adj_full = trainset.get_full_adj_matrix()
-    cPickle.dump(adj_full, f)
+            if 'Link_Prediction_%d_'%(number) in file or  'GCN_%d_'%(number) in file:
+                os.remove(files_home + '/networks/'+file) 
 
 
     for epoch in tqdm(range(last_epoch,args.epochs)):  #
@@ -190,18 +188,14 @@ def main(files_home):
                     print('[%d, %5d] loss: %.3f' % (epoch, i + 1, running_loss))
                 running_loss = 0.0
                 loss = 0
-                if args.cuda == True:
-                    init_input = torch.LongTensor([j for j in range(0, node_count)]).cuda()
-                else:
-                    init_input = torch.LongTensor([j for j in range(0, node_count)])
                 rp_matrix = gcn(init_input, adj_matrix)
 
         if (epoch >= args.epochs-5 and epoch < args.epochs):  #
-            torch.save(gcn.state_dict(), files_home + '/networks/GCN_last_%d.pth' % ( epoch))
-            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_last_%d.pth' % ( epoch))
+            torch.save(gcn.state_dict(), files_home + '/networks/GCN_%d_%d.pth' % (number, epoch))
+            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_%d_%d.pth' % (number, epoch))
         elif epoch%9==0:
-            torch.save(gcn.state_dict(), files_home + '/networks/GCN_last_%d.pth'%(epoch))
-            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_last_%d.pth'%(epoch))
+            torch.save(gcn.state_dict(), files_home + '/networks/GCN_%d_%d.pth'%(number,epoch))
+            torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_%d_%d.pth'%(number,epoch))
         print('reset train samples set')
         trainset.reassign_samples(gcn.embedding.weight)  #
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)  #

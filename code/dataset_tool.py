@@ -26,20 +26,19 @@ def get_items(pairs):
     return gene_set, disease_set
 
 
-def generate_negative(genes, diseases, pos_samples, nega_weight,adj_matrix,node_index):
+def generate_negative(genes, diseases, pos_samples, nega_weight,all_pos_samples,node_index):
     """ generate negative sample by random change one of a pairs"""
-    adj_matrix = sparse_mx_to_torch_sparse_tensor(adj_matrix).to_dense()
     pairs = set()
     genes, diseases = list(genes), list(diseases)
     for ps in pos_samples:
         for k in range(0, nega_weight):
-            index = random.randint(0, len(genes) - 1)
+            index1 = random.randint(0, len(genes) - 1)
+            d = ps[1]
             while True:
-                if adj_matrix[node_index[genes[index]]][node_index[ps[1]]]==0.0:
+                if (genes[index1],d) not in all_pos_samples:
                     break
-                index = random.randint(0, len(genes) - 1)
-
-            pairs.add((genes[index], ps[1]))
+                index1 = random.randint(0, len(genes) - 1)
+            pairs.add((genes[index1], d))
     return list(pairs)
 
 def assign_index(all_genes, all_diseases):

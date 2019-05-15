@@ -96,9 +96,9 @@ class Link_Prediction(nn.Module):
         x = torch.cat((x1,x2),1) # N * (2 node_dim)
         
         x = F.relu(self.linear1(x)) # N * hidden1_dim
-        x = self.dropout(x)
+#        x = self.dropout(x)
         x = F.relu(self.linear2(x)) # N * hidden2_dim
-        x = self.dropout(x)
+#        x = self.dropout(x)
         x = self.linear3(x) # N * 2
         x = self.softmax(x) # N * ( probility of each event )
         return x

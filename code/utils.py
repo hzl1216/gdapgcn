@@ -49,3 +49,22 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     values = torch.from_numpy(sparse_mx.data)
     shape = torch.Size(sparse_mx.shape)
     return torch.sparse.FloatTensor(indices, values, shape)
+
+def evaluation(tp,fp,fn,total_top):
+    sample_length = len(tp[0])
+    prec = [[float(tp[top][i]) / (tp[top][i] + fp[top][i]) for i in range(0, sample_length)] for top in
+            range(0, total_top)]
+    recall = [[float(tp[top][i]) / (tp[top][i] + fn[top][i]) for i in range(0, sample_length)] for top in
+              range(0, total_top)]
+    f1score = []
+    for top in range(0, total_top):
+        f1score.append([])
+        for i in range(0, sample_length):
+            if prec[top][i] + recall[top][i] == 0:
+                f1score[top].append(0)
+            else:
+                f1score[top].append(2 * prec[top][i] * recall[top][i] / (prec[top][i] + recall[top][i]))
+    prec_mean = [sum(prec[top]) / sample_length for top in range(0, total_top)]
+    recall_mean = [sum(recall[top]) / sample_length for top in range(0, total_top)]
+    f1score_mean = [sum(f1score[top]) / sample_length for top in range(0, total_top)]
+    return prec_mean,recall_mean,f1score_mean
