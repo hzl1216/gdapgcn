@@ -12,7 +12,8 @@ from file_name import files_name
 import os
 import ast
 from tqdm import tqdm
-import recon_cossm
+import matplotlib.pyplot as plt
+import numpy as np
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--cuda', default=True, help='use CUDA (default: True),input should be either "True" or "False".',
@@ -58,18 +59,18 @@ def main(files_home):
             print('load old node_index')
             f = open(node_index_file, 'rb')
             node2index = cPickle.load(f)
-            trainset = Sample_Set(f_test,f_train,f_ggi,f_dds, node2index)
+            trainset = Sample_Set(f_train,f_ggi,f_dds, node2index)
         except:
             ### new node_index
-            print('load node_index failed,generate new node_index,need recalculator similarity matrix ')
-            trainset = Sample_Set(f_test,f_train,f_ggi,f_dds)
+            print('load node_index failed')
+            trainset = Sample_Set(f_train,f_ggi,f_dds)
             node2index = trainset.get_node2index()
             f = open(node_index_file,'wb')
             cPickle.dump(node2index,f)
 
     else:
         ### new node_index
-        print('new node_index,need recalculator similarity matrix ')
+        print('new node_index')
         trainset = Sample_Set(f_train,f_ggi,f_dds)
         node2index = trainset.get_node2index()
         f = open(node_index_file,'wb')
@@ -137,7 +138,8 @@ def main(files_home):
             if 'Link_Prediction_%d_'%(number) in file or  'GCN_%d_'%(number) in file:
                 os.remove(files_home + '/networks/'+file) 
 
-
+    running_losses = []
+    cluster_losses = []
     for epoch in tqdm(range(last_epoch,args.epochs)):  #
 
         running_loss = 0.0
@@ -173,19 +175,22 @@ def main(files_home):
             loss = criterion(outputs, labels) + loss
 
             # '''
-            if (i + 1) % 1000 == 0:
+            if (i+1) % 1000 == 0:
                 update_sm = False
-                if (i + 1) % 9000 == 0:
+                if i+1 % 9000 == 0:
                     update_sm = True
-                loss = loss + criterion_rp(gcn.embedding.weight, update_sm)
+                cluster_loss = criterion_rp(gcn.embedding.weight, update_sm)
+                cluster_losses.append(cluster_loss)
+                loss+=cluster_loss
             # '''
-            if (i + 1) % 100 == 0:
+            if (i+1)  % 100 == 0:
                 optimizer_lp_model.zero_grad()
                 loss.backward()
                 optimizer_lp_model.step()
                 running_loss += loss.item()
-                if (i + 1) % 1000 == 0:
-                    print('[%d, %5d] loss: %.3f' % (epoch, i + 1, running_loss))
+                if (i+1) % 1000 == 0:
+                    print('[%d, %5d] loss: %.3f' % (epoch, i+1, running_loss))
+                running_losses.append(running_loss)
                 running_loss = 0.0
                 loss = 0
                 rp_matrix = gcn(init_input, adj_matrix)
@@ -199,7 +204,20 @@ def main(files_home):
         print('reset train samples set')
         trainset.reassign_samples(gcn.embedding.weight)  #
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)  #
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    x1 =  np.arange(0, args.epochs,args.epochs/len(running_losses))
+    x2 =  np.arange(0, args.epochs,args.epochs/len(cluster_losses))
+    y1 = running_losses
+    y2=  cluster_losses
+    ax1.plot(x1, y1, 'g-')
+    ax2.plot(x2, y2, 'b-')
+    ax1.set_xlabel('epoch')
+    ax1.set_ylabel('Total loss', color='g')
+    ax2.set_ylabel('Cluster_loss', color='b')
 
+    plt.savefig(files_home + '/results/loss_%d.png'%number)
+    plt.close()
     endtime = datetime.now()
     print('finish train model! run spend ',endtime-starttime)
 

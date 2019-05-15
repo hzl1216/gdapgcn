@@ -19,7 +19,6 @@ from sklearn.metrics import roc_auc_score as auc
 """ Construct test verification set"""
 
 
-
 def get_rank_test_samples(f_train, f_test):
     '''
     :param f_train: the gene and disease associations in train set
@@ -101,6 +100,7 @@ def get_test_prf(testloader,rp_matrix, lp):
     print('prec %f, recall %f , f1score %f, auc_score %f'%(prec, recall, f1score, auc_score))
     return prec, recall, f1score, auc_score
 
+
 def get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024):
     '''
     :param dis2gene_test_true: the validate set
@@ -177,7 +177,8 @@ def get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_mat
     ap = ap_numerator / ap_denumerator
     return ap, prec_mean, recall_mean, f1score_mean
 
-def get_test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=256):
+
+def get_test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10):
     '''
     :param dis2gene_test_true: the validate set
     :param dis2gene_test_all: the gene set of waiting for prediction
@@ -228,7 +229,6 @@ def get_test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_ma
     prec_mean, recall_mean, f1score_mean = evaluation(tp,fp,fn,total_top)
     ap = ap_numerator / ap_denumerator
     return ap, prec_mean, recall_mean, f1score_mean
-
 
 
 def get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024,threshold=0.8):
@@ -306,7 +306,7 @@ def get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, featur
 
         # get gene sort result by word2vec Genetic sequencing
         result = []
-        results = my_word2vec.predict_output_word([d],topn=20000)
+        results = my_word2vec.predict_output_word([d],topn=len(node2index))
         for r in results:
             if r[0] in g_candidate:
                 result.append(r)
@@ -328,6 +328,8 @@ def get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, featur
     prec_mean, recall_mean, f1score_mean = evaluation(tp,fp,fn,total_top)
     ap = ap_numerator / ap_denumerator
     return ap, prec_mean, recall_mean, f1score_mean
+
+
 def main(files_home):
     starttime = datetime.now()
     print('start test model ', starttime)
@@ -361,7 +363,7 @@ def main(files_home):
     full_adj_matrix = cPickle.load(f)
     full_adj_matrix = sparse_mx_to_torch_sparse_tensor(full_adj_matrix).cuda()
 
-    for epoch in tqdm(range(54, args.epochs)):
+    for epoch in tqdm(range(0, args.epochs)):
         if epoch%9!=0 and epoch<args.epochs-5:
             continue
         gcn.load_state_dict(torch.load(files_home + '/networks/GCN_%d_%d.pth'%(number,epoch)))
@@ -372,12 +374,10 @@ def main(files_home):
         get_test_prf(testloader, feature_matrix, lp)
 
         if 0:
-            # no use similarity matrix to solve
-            print('no use similarity matrix to solve')
+            print('use gcn to prediction')
             ap, prec, recall, f1score = get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp)
-            #  use similarity matrix to iterative solution
         else:
-            print('use similarity matrix to iterative solution')
+            print('use gcn and word2ver to prediction')
             ap, prec, recall, f1score = get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix,
                                                                   lp)
         print('Performance for number=%d epoch=%d' % (number, epoch))

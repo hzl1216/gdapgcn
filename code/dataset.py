@@ -3,8 +3,7 @@ from dataset_tool import *
 import torch.nn.functional as F
 class Sample_Set(Dataset):
 
-    def __init__(self,file_test_sample, file_train_sample, ggi,dds,node2index=None):
-        self.pairs_test = get_pairs(file_test_sample)
+    def __init__(self,file_train_sample, ggi,dds,node2index=None):
         self.pairs_train = get_pairs(file_train_sample)
         self.all_genes, self.all_diseases = get_items(self.pairs_train)
         self.dropout = 0.5
@@ -29,7 +28,7 @@ class Sample_Set(Dataset):
 
         self.adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index, 0.0)
         self.negative_samples = generate_negative(self.all_genes, self.all_diseases, self.positive_samples_target,
-                                                  self.nega_weight,self.pairs_test|self.pairs_train,self.node2index)
+                                                  self.nega_weight,self.pairs_train,self.node2index)
         self.samples = merge_samples(self.nega_weight, self.positive_samples_target, self.negative_samples)
 
     def add_samples(self, new_samples):
