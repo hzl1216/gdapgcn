@@ -1,7 +1,9 @@
 from torch.utils.data.dataset import Dataset
 from dataset_tool import *
-import torch.nn.functional as F
 class Sample_Set(Dataset):
+    '''
+    train dataSet
+    '''
 
     def __init__(self,file_train_sample, ggi,dds,node2index=None):
         self.pairs_train = get_pairs(file_train_sample)
@@ -18,6 +20,10 @@ class Sample_Set(Dataset):
         self.dds=dds
 
     def reassign_samples(self):
+        '''
+        renew generate positive samples and negative samples
+        :return:
+        '''
         self.positive_samples_target, self.positive_samples_base = [], []
         for pair in list(self.pairs_train) + list(self.added_samples):
             if random.uniform(0, 1) < self.dropout:
@@ -31,20 +37,42 @@ class Sample_Set(Dataset):
         self.samples = merge_samples(self.nega_weight, self.positive_samples_target, self.negative_samples)
 
     def add_samples(self, new_samples):
+        '''
+        add samples to dataSet, is external's pairs
+        :param new_samples: new_samples
+        :return:
+        '''
         self.added_samples = self.added_samples | new_samples
 
-    def remove_samples(self, del_samples):
-        self.added_samples = self.added_samples - del_samples
+    def remove_samples(self, samples):
+        '''
+        remove samples from external's pairs
+        :param del_samples:
+        :return:
+        '''
+        self.added_samples = self.added_samples - samples
 
     def get_adj_matrix(self):
+        '''
+        get positive_samples_target adjacency matrix
+        :return:adjacency matrix ,type is coo_matrix
+        '''
         return self.adj_matrix
 
     def get_full_adj_matrix(self):
+        '''
+        get all positive samples adjacency matrix
+        :return: adjacency matrix ,type is coo_matrix
+        '''
         return adjacency_matrix(self.positive_samples_base + self.positive_samples_target, self.ggi, self.dds,
                                                       self.node2index)
 
 
     def get_node2index(self):
+        '''
+        get node's index
+        :return: node's index ,type is dict
+        '''
         return self.node2index
 
     def get_added_item(self, batchsize):
@@ -73,6 +101,9 @@ class Sample_Set(Dataset):
 
 
 class Sample_Set_Test(Dataset):
+    '''
+    test dataSet
+    '''
 
     def __init__(self, file_test_sample,file_train, node2index, nega_weight=10):
 

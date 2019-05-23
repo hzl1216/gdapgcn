@@ -63,15 +63,15 @@ class GCN(nn.Module):
         self.tmp_linear = nn.Linear(self.n_feature, self.n_representation)
         self.init_weights()
 
-    def forward(self, x, adj):  # , adj_g, adj_d
-        x = self.embedding(x)  #
+    def forward(self, x, adj):
+        x = self.embedding(x)
 
         x1 = F.relu(self.gc1(x, adj))
         x1 = self.gc2(x1, adj)
 
         x2 = self.dropout(x)
         x2 = self.tmp_linear(x2)
-        out = x1 + x2  # + x2_g + x2_d # node_count * n_representation
+        out = x1 + x2
 
         return out
 

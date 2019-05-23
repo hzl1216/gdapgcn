@@ -110,6 +110,13 @@ def adjacency_matrix(pos_samples, ggi, dds, node2index):
 
 
 def merge_samples(nega_weight, p_samples, n_samples):
+    '''
+    merge negative and positive samples by order 
+    :param nega_weight: the rate of negative  and  positive samples
+    :param p_samples: positive samples
+    :param n_samples: negative samples
+    :return: all train samples
+    '''
     samples = []
     for i in range(0, min(len(p_samples), len(n_samples) // nega_weight)):
         samples.append(p_samples[i])

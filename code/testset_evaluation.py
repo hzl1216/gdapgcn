@@ -55,7 +55,7 @@ def get_rank_test_samples(f_train, f_test):
     return dis2gene_test_true, dis2gene_test_all
 
 
-def get_test_prf(testloader,rp_matrix, lp):
+def test_link(testloader,rp_matrix, lp):
     tp, fp, tn, fn = 0, 0, 0, 0
     result = []
     device = torch.device('cuda:0')
@@ -101,7 +101,7 @@ def get_test_prf(testloader,rp_matrix, lp):
     print('prec %f, recall %f , f1score %f, auc_score %f'%(prec, recall, f1score, auc_score))
     return prec, recall, f1score, auc_score
 
-def get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024):
+def test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024):
     '''
     :param dis2gene_test_true: the validate set
     :param dis2gene_test_all: the gene set of waiting for prediction
@@ -177,7 +177,7 @@ def get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_mat
     ap = ap_numerator / ap_denumerator
     return ap, prec_mean, recall_mean, f1score_mean
 
-def get_test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=256):
+def test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=256):
     '''
     :param dis2gene_test_true: the validate set
     :param dis2gene_test_all: the gene set of waiting for prediction
@@ -231,7 +231,7 @@ def get_test_priorization_word(dis2gene_test_true, dis2gene_test_all, feature_ma
 
 
 
-def get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024,threshold=0.7):
+def test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp, total_top=10, batch_size=1024,threshold=0.7):
     '''
     :param dis2gene_test_true: the validate set
     :param dis2gene_test_all: the gene set of waiting for prediction
@@ -361,7 +361,7 @@ def main(files_home):
     full_adj_matrix = cPickle.load(f)
     full_adj_matrix = sparse_mx_to_torch_sparse_tensor(full_adj_matrix).cuda()
 
-    for epoch in tqdm(range(45, args.epochs)):
+    for epoch in tqdm(range(0, args.epochs)):
         if epoch%9!=0 and epoch<args.epochs-5:
             continue
         gcn.load_state_dict(torch.load(files_home + '/networks/GCN_%d_%d.pth'%(number,epoch)))
@@ -369,14 +369,14 @@ def main(files_home):
         gcn.eval()
 
         feature_matrix = gcn(init_input, full_adj_matrix)
-#       get_test_prf(testloader, feature_matrix, lp)
+#       test_link(testloader, feature_matrix, lp)
 
         if 0:
             print('use gcn to prediction')
-            ap, prec, recall, f1score = get_test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp)
+            ap, prec, recall, f1score = test_priorization_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix, lp)
         else:
             print('use gcn and word2ver to prediction')
-            ap, prec, recall, f1score = get_test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix,
+            ap, prec, recall, f1score = test_priorization_word_gcn(dis2gene_test_true, dis2gene_test_all, feature_matrix,
                                                                   lp)
         print('Performance for number=%d epoch=%d' % (number, epoch))
         print('AP: ', ap)
