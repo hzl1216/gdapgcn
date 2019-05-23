@@ -17,8 +17,7 @@ class Sample_Set(Dataset):
         self.ggi=ggi
         self.dds=dds
 
-    def reassign_samples(self, embedding):
-        self.embedding = embedding
+    def reassign_samples(self):
         self.positive_samples_target, self.positive_samples_base = [], []
         for pair in list(self.pairs_train) + list(self.added_samples):
             if random.uniform(0, 1) < self.dropout:
@@ -26,7 +25,7 @@ class Sample_Set(Dataset):
             else:
                 self.positive_samples_base.append(pair)
 
-        self.adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index, 0.0)
+        self.adj_matrix = adjacency_matrix(self.positive_samples_base, self.ggi, self.dds, self.node2index)
         self.negative_samples = generate_negative(self.all_genes, self.all_diseases, self.positive_samples_target,
                                                   self.nega_weight,self.pairs_train,self.node2index)
         self.samples = merge_samples(self.nega_weight, self.positive_samples_target, self.negative_samples)
@@ -42,7 +41,7 @@ class Sample_Set(Dataset):
 
     def get_full_adj_matrix(self):
         return adjacency_matrix(self.positive_samples_base + self.positive_samples_target, self.ggi, self.dds,
-                                                      self.node2index, self.dropout)
+                                                      self.node2index)
 
 
     def get_node2index(self):
@@ -103,73 +102,6 @@ class Sample_Set_Test(Dataset):
         sample = node_vector((id1, id2), self.node2index)
         return sample
 
-class Sample_Set_Top_set(Dataset):
-    def __init__(self, file_train, file_test,node2index,load_rate=1):
-        self.get_rank_test_samples(file_train, file_test)
-        self.node2index = node2index
-        self.samples = self.build_samples(load_rate)
-
-
-    """ Construct test verification set"""
-    def get_rank_test_samples(self, f_train, f_test):
-        '''
-        :param f_train: the gene and disease associations in train set
-        :param f_test: the gene and disease associations in test set
-        :return: the all set of the gene and disease associations, the gene that in test set but not in train set ,
-        use those genes to predict disease associations
-        '''
-        all_genes = set()
-        dis2gene_train = dict()
-        dis2gene_test_true = dict()
-        dis2gene_test_all = dict()
-
-        df = read_csv(f_train)
-        for i in range(0, len(df)):
-            gid = str(df['gid'][i])
-            did = df['did'][i]
-            if did not in dis2gene_train.keys():
-                dis2gene_train[did] = set()
-            dis2gene_train[did].add(gid)
-
-        df = read_csv(f_test)
-        for i in range(0, len(df)):
-            gid = str(df['gid'][i])
-            did = df['did'][i]
-            all_genes.add(gid)
-            if did not in dis2gene_test_true.keys():
-                dis2gene_test_true[did] = set()
-            dis2gene_test_true[did].add(gid)
-
-        for key in dis2gene_test_true.keys():
-            dis2gene_test_all[key] = all_genes - dis2gene_train[key]
-
-        self.dis2gene_test_true = dis2gene_test_true
-        self.dis2gene_test_all = dis2gene_test_all
-
-    def build_samples(self,load_rate):
-        samples = []
-        for d in self.dis2gene_test_all.keys():
-
-            if random.uniform(0, 1) <= load_rate:
-                continue  # only test to a part, for speed up
-            # gene set to be predicted by the disease
-            d_genes = list(self.dis2gene_test_all[d])
-            for gene in d_genes:
-                sample = (str(gene), d)
-                samples.append(sample)
-        return samples
-
-    def __getitem__(self, index):
-        if self.samples[index][1] in self.dis2gene_test_true[self.samples[index][1]]:
-            target = 1
-        else:
-            target = 0
-        item = self.samples[index]
-        sample = node_vector(item, self.node2index)
-        return sample, target
-
-    def __len__(self):
-        return len(self.samples)
 
 
 

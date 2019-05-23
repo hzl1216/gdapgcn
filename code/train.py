@@ -92,7 +92,7 @@ def main(files_home):
     vec_dir = os.path.join(files_home, files_name['word2vec'])
     embedding = load_pretrain_vector(node2index, vec_dir)  #
     gcn.embedding.weight.data.copy_(torch.from_numpy(embedding))  #
-    trainset.reassign_samples(gcn.embedding.weight)
+    trainset.reassign_samples()
 
     trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)
 
@@ -177,10 +177,11 @@ def main(files_home):
             # '''
             if (i+1) % 1000 == 0:
                 update_sm = False
-                if i+1 % 9000 == 0:
+                if (i+1) % 9000 == 0:
                     update_sm = True
                 cluster_loss = criterion_rp(gcn.embedding.weight, update_sm)
-                cluster_losses.append(cluster_loss)
+                if (i+1) % 9000 == 0:
+                    cluster_losses.append(cluster_loss)
                 loss+=cluster_loss
             # '''
             if (i+1)  % 100 == 0:
@@ -190,7 +191,7 @@ def main(files_home):
                 running_loss += loss.item()
                 if (i+1) % 1000 == 0:
                     print('[%d, %5d] loss: %.3f' % (epoch, i+1, running_loss))
-                running_losses.append(running_loss)
+                    running_losses.append(running_loss)
                 running_loss = 0.0
                 loss = 0
                 rp_matrix = gcn(init_input, adj_matrix)
@@ -202,7 +203,7 @@ def main(files_home):
             torch.save(gcn.state_dict(), files_home + '/networks/GCN_%d_%d.pth'%(number,epoch))
             torch.save(lp_model.state_dict(), files_home + '/networks/Link_Prediction_%d_%d.pth'%(number,epoch))
         print('reset train samples set')
-        trainset.reassign_samples(gcn.embedding.weight)  #
+        trainset.reassign_samples()  #
         trainloader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True)  #
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()

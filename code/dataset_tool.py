@@ -32,13 +32,12 @@ def generate_negative(genes, diseases, pos_samples, nega_weight,all_pos_samples,
     genes, diseases = list(genes), list(diseases)
     for ps in pos_samples:
         for k in range(0, nega_weight):
-            index1 = random.randint(0, len(genes) - 1)
-            d = ps[1]
+            index = random.randint(0, len(genes) - 1)
             while True:
-                if (genes[index1],d) not in all_pos_samples:
+                if (genes[index],ps[1]) not in all_pos_samples:
                     break
-                index1 = random.randint(0, len(genes) - 1)
-            pairs.add((genes[index1], d))
+                index = random.randint(0, len(genes) - 1)
+            pairs.add((genes[index], ps[1]))
     return list(pairs)
 
 def assign_index(all_genes, all_diseases):
@@ -75,13 +74,13 @@ def normalize(mx):
     return mx
 
 
-def adjacency_matrix(pos_samples, ggi, dds, node2index, reweight):
+def adjacency_matrix(pos_samples, ggi, dds, node2index):
     values = [1.0 for i in range(0, len(node2index))]
     vertex_1 = list(range(0, len(node2index)))
     vertex_2 = list(range(0, len(node2index)))
     """ Generate associations based on positive sample sets"""
     for ps in pos_samples:
-        values.append(1.0-reweight) ## ps[2]
+        values.append(1.0) ## ps[2]
         vertex_1.append(node2index[ps[0]])
         vertex_2.append(node2index[ps[1]])
     """ Generate associations based on gene to gene associations"""
